@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlightMap</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>FlightMap</h1>
+    <nav>
+      <a href="#" id="help-link">Help</a>
+      <a href="mailto:hello@rocketcity-ai.com">Contact</a>
+    </nav>
+  </header>
+
+  <div id="help-modal" class="modal-overlay">
+    <div class="modal">
+      <button class="modal-close" type="button" aria-label="Close">&times;</button>
+      <h2>How to use FlightMap</h2>
+      <p><strong>Enter flights</strong> in the sidebar, one per line. Each line is an origin-destination pair using ICAO codes (KJFK), IATA codes (JFK), or FAA identifiers (FFC).</p>
+      <p>Separate the pair with a dash, comma, space, or arrow:</p>
+      <pre>JFK-LHR
+LAX NRT
+KJFK, EGLL
+SFO -> SIN</pre>
+      <p><strong>Upload</strong> a CSV or text file with two columns (origin and destination). The first row is treated as a header and skipped. Comma, tab, semicolon, and space delimiters are auto-detected.</p>
+      <p><strong>Plot Flights</strong> (or Cmd/Ctrl+Enter) validates the codes and draws great-circle routes on the map.</p>
+      <p><strong>Export PNG</strong> downloads the current map view as an image.</p>
+    </div>
+  </div>
+
+  <div id="app">
+    <aside id="sidebar">
+      <div class="input-section">
+        <label for="flight-input">Enter flights (one per line)</label>
+        <textarea id="flight-input" placeholder="JFK-LHR&#10;LAX-NRT&#10;SFO-SIN"></textarea>
+        <div class="input-actions">
+          <button id="plot-btn" type="button">Plot Flights</button>
+          <button id="clear-btn" type="button" class="secondary">Clear</button>
+          <label id="upload-label" class="secondary" tabindex="0">
+            Upload
+            <input type="file" id="file-input" accept=".txt,.csv" />
+          </label>
+        </div>
+      </div>
+      <div id="status"></div>
+      <div id="flight-list"></div>
+      <div class="export-section">
+        <button id="export-btn" type="button" disabled>Export PNG</button>
+      </div>
+    </aside>
+
+    <main>
+      <div id="map"></div>
+    </main>
+  </div>
+
+  <!-- Ad placeholder — no ad code loaded until configured -->
+  <div id="ad-slot" class="ad-slot" aria-hidden="true"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/validate.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
