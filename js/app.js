@@ -121,6 +121,18 @@
     }
   });
 
+  // Style picker
+  const stylePicker = document.getElementById('style-picker');
+  const styles = FlightMap.getStyles();
+  for (const [key, style] of Object.entries(styles)) {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = style.name;
+    if (key === FlightMap.getDefaultStyle()) opt.selected = true;
+    stylePicker.appendChild(opt);
+  }
+  stylePicker.addEventListener('change', () => FlightMap.setStyle(stylePicker.value));
+
   // Help modal
   const helpModal = document.getElementById('help-modal');
   function showHelp() { helpModal.classList.add('visible'); }

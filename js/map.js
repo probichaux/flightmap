@@ -5,17 +5,44 @@ const FlightMap = (() => {
   let map;
   let flightLayer;   // LayerGroup holding all arcs + markers
   let plottedFlights = []; // stored for canvas-based export
+  let tileLayer;
+
+  const TILE_STYLES = {
+    'dark':     { name: 'Dark',     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',                  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
+    'light':    { name: 'Light',    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
+    'voyager':  { name: 'Voyager',  url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
+    'osm':      { name: 'Standard', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' },
+    'esri-gray':{ name: 'Gray',     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: '&copy; Esri', subdomains: [] },
+  };
+
+  const DEFAULT_STYLE = 'voyager';
 
   /** Initialise the Leaflet map. */
   function init() {
     map = L.map('map', { zoomControl: true, worldCopyJump: true }).setView([30, 0], 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 18,
-    }).addTo(map);
+    setStyle(DEFAULT_STYLE);
     flightLayer = L.layerGroup().addTo(map);
     return map;
   }
+
+  /** Switch tile layer style. */
+  function setStyle(key) {
+    const style = TILE_STYLES[key];
+    if (!style) return;
+    if (tileLayer) map.removeLayer(tileLayer);
+    const opts = { attribution: style.attribution, maxZoom: 18 };
+    if (style.subdomains !== undefined) opts.subdomains = style.subdomains;
+    tileLayer = L.tileLayer(style.url, opts).addTo(map);
+  }
+
+  /** Get the current tile URL template (for export). */
+  function getTileUrl() {
+    return tileLayer ? tileLayer._url : TILE_STYLES[DEFAULT_STYLE].url;
+  }
+
+  /** Get available styles for the picker. */
+  function getStyles() { return TILE_STYLES; }
+  function getDefaultStyle() { return DEFAULT_STYLE; }
 
   /** Remove all plotted flights. */
   function clear() {
@@ -126,12 +153,13 @@ const FlightMap = (() => {
     });
   }
 
-  /** Draw OSM tiles onto a canvas at correct positions. */
+  /** Draw current tile layer onto a canvas at correct positions. */
   async function drawTiles(ctx) {
     const zoom = map.getZoom();
     const pixelBounds = map.getPixelBounds();
     const tileSize = 256;
-    const subdomains = ['a', 'b', 'c'];
+    const urlTemplate = getTileUrl();
+    const subdomains = tileLayer.options.subdomains || ['a', 'b', 'c'];
 
     const minTileX = Math.floor(pixelBounds.min.x / tileSize);
     const minTileY = Math.floor(pixelBounds.min.y / tileSize);
@@ -142,8 +170,8 @@ const FlightMap = (() => {
     let idx = 0;
     for (let tx = minTileX; tx < maxTileX; tx++) {
       for (let ty = minTileY; ty < maxTileY; ty++) {
-        const s = subdomains[idx++ % 3];
-        const url = `https://${s}.tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
+        const s = subdomains.length ? subdomains[idx++ % subdomains.length] : '';
+        const url = urlTemplate.replace('{s}', s).replace('{z}', zoom).replace('{x}', tx).replace('{y}', ty).replace('{r}', '');
         const canvasX = tx * tileSize - pixelBounds.min.x;
         const canvasY = ty * tileSize - pixelBounds.min.y;
         promises.push(
@@ -211,5 +239,5 @@ const FlightMap = (() => {
     });
   }
 
-  return { init, clear, plot, exportPNG, distanceKm, formatDist };
+  return { init, clear, plot, exportPNG, distanceKm, formatDist, setStyle, getStyles, getDefaultStyle };
 })();

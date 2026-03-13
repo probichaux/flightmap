@@ -50,6 +50,10 @@ button, #upload-label { display: inline-flex; align-items: center; justify-conte
 button:disabled { opacity: 0.4; cursor: default; }
 #plot-btn:disabled { background: #93b4f4; }
 
+/* ── Style picker ──────────────────────────────────── */
+.style-section label { font-size: 13px; font-weight: 500; color: #555; }
+#style-picker { width: 100%; padding: 6px 10px; font-size: 13px; border: 1px solid #d0d0d0; border-radius: 6px; background: #fafafa; margin-top: 4px; }
+
 /* ── Status / flight list ──────────────────────────── */
 #status { font-size: 13px; color: #555; min-height: 20px; }
 #status.error { color: #dc2626; }
