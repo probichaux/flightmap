@@ -110,51 +110,74 @@ const FlightMap = (() => {
 
   const COLORS = ['#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#65a30d'];
 
+  const MIN_WEIGHT = 1.5;
+  const MAX_WEIGHT = 6;
+
+  /** Sqrt-scaled line weight normalized to the dataset's count range. */
+  function routeWeight(count, maxCount) {
+    if (maxCount <= 1) return MIN_WEIGHT;
+    return MIN_WEIGHT + (MAX_WEIGHT - MIN_WEIGHT) * (Math.sqrt(count) - 1) / (Math.sqrt(maxCount) - 1);
+  }
+
   /** Plot an array of validated flights. Returns array of { flight, distance }. */
   function plot(flights) {
     clear();
     const bounds = [];
     const results = [];
-    let colorIdx = 0;
 
+    // First pass: build per-flight results and group by route
+    const routeMap = new Map(); // "ICAO|ICAO" → { origin, dest, count }
     for (const f of flights) {
       if (!f.valid) { results.push({ flight: f, distance: null }); continue; }
       const { origin, dest } = f;
+      const dist = origin.icao === dest.icao ? 0 : distanceKm(origin.lat, origin.lng, dest.lat, dest.lng);
+      results.push({ flight: f, distance: dist });
+
+      const key = [origin.icao, dest.icao].sort().join('|');
+      if (!routeMap.has(key)) {
+        routeMap.set(key, { origin, dest, count: 0, sameAirport: origin.icao === dest.icao });
+      }
+      routeMap.get(key).count++;
+    }
+
+    // Compute max count for weight scaling
+    const maxCount = Math.max(...[...routeMap.values()].map(r => r.count));
+
+    // Second pass: draw one line per unique route, one marker per unique airport
+    let colorIdx = 0;
+    const airportMarkers = new Map(); // icao → { airport, color }
+
+    for (const [, route] of routeMap) {
       const color = COLORS[colorIdx % COLORS.length];
       colorIdx++;
-      const sameAirport = origin.icao === dest.icao;
+      const weight = routeWeight(route.count, maxCount);
 
-      if (sameAirport) {
-        // Same-airport flight: plot as a single dot
-        const markerOpts = { radius: 7, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 };
-        const popup = `<strong>${origin.local || origin.iata || origin.icao}</strong><br>${origin.name}<br>${origin.city}, ${origin.country}`;
-        L.circleMarker([origin.lat, origin.lng], markerOpts).bindPopup(popup).addTo(flightLayer);
-        bounds.push([origin.lat, origin.lng]);
-        plottedFlights.push({ origin, dest, arc: [[origin.lat, origin.lng]], color });
-        results.push({ flight: f, distance: 0 });
+      if (route.sameAirport) {
+        const markerOpts = { radius: 5 + weight, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 };
+        const popup = `<strong>${route.origin.local || route.origin.iata || route.origin.icao}</strong><br>${route.origin.name}<br>${route.origin.city}, ${route.origin.country}`;
+        L.circleMarker([route.origin.lat, route.origin.lng], markerOpts).bindPopup(popup).addTo(flightLayer);
+        bounds.push([route.origin.lat, route.origin.lng]);
+        plottedFlights.push({ origin: route.origin, dest: route.dest, arc: [[route.origin.lat, route.origin.lng]], color, weight });
       } else {
-        // Arc
-        const arc = greatCircleArc(origin.lat, origin.lng, dest.lat, dest.lng);
-        L.polyline(arc, { color, weight: 2.5, opacity: 0.8 }).addTo(flightLayer);
-
-        // Markers
-        const markerOpts = { radius: 5, fillColor: color, color: '#fff', weight: 1.5, fillOpacity: 0.9 };
-        const popupOrigin = `<strong>${origin.local || origin.iata || origin.icao}</strong><br>${origin.name}<br>${origin.city}, ${origin.country}`;
-        const popupDest = `<strong>${dest.local || dest.iata || dest.icao}</strong><br>${dest.name}<br>${dest.city}, ${dest.country}`;
-        L.circleMarker([origin.lat, origin.lng], markerOpts).bindPopup(popupOrigin).addTo(flightLayer);
-        L.circleMarker([dest.lat, dest.lng], markerOpts).bindPopup(popupDest).addTo(flightLayer);
-
-        // Include endpoints and arc midpoint in bounds (arcs curve away from endpoints)
-        bounds.push([origin.lat, origin.lng], [dest.lat, dest.lng]);
+        const arc = greatCircleArc(route.origin.lat, route.origin.lng, route.dest.lat, route.dest.lng);
+        L.polyline(arc, { color, weight, opacity: 0.8 }).addTo(flightLayer);
+        bounds.push([route.origin.lat, route.origin.lng], [route.dest.lat, route.dest.lng]);
         const mid = arc[Math.floor(arc.length / 2)];
         if (mid) bounds.push(mid);
-        const dist = distanceKm(origin.lat, origin.lng, dest.lat, dest.lng);
-        plottedFlights.push({ origin, dest, arc, color });
-        results.push({ flight: f, distance: dist });
+        plottedFlights.push({ origin: route.origin, dest: route.dest, arc, color, weight });
+
+        if (!airportMarkers.has(route.origin.icao)) airportMarkers.set(route.origin.icao, { airport: route.origin, color });
+        if (!airportMarkers.has(route.dest.icao)) airportMarkers.set(route.dest.icao, { airport: route.dest, color });
       }
     }
 
-    // Fit map tightly to show all flights
+    // Draw one marker per unique airport
+    for (const [, { airport, color }] of airportMarkers) {
+      const markerOpts = { radius: 5, fillColor: color, color: '#fff', weight: 1.5, fillOpacity: 0.9 };
+      const popup = `<strong>${airport.local || airport.iata || airport.icao}</strong><br>${airport.name}<br>${airport.city}, ${airport.country}`;
+      L.circleMarker([airport.lat, airport.lng], markerOpts).bindPopup(popup).addTo(flightLayer);
+    }
+
     if (bounds.length > 0) {
       map.fitBounds(bounds, { padding: [20, 20], maxZoom: 18 });
     }
@@ -210,7 +233,7 @@ const FlightMap = (() => {
       // Draw arc
       ctx.beginPath();
       ctx.strokeStyle = pf.color;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = pf.weight || 2.5;
       ctx.globalAlpha = 0.8;
       for (let i = 0; i < pf.arc.length; i++) {
         const pt = map.latLngToContainerPoint(pf.arc[i]);
