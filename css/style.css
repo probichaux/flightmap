@@ -50,6 +50,12 @@ button, #upload-label { display: inline-flex; align-items: center; justify-conte
 button:disabled { opacity: 0.4; cursor: default; }
 #plot-btn:disabled { background: #93b4f4; }
 
+/* ── Units picker ─────────────────────────────────── */
+.units-section .section-label { font-size: 13px; font-weight: 500; color: #555; display: block; margin-bottom: 4px; }
+.radio-group { display: flex; gap: 16px; }
+.radio-group label { font-size: 13px; color: #333; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.radio-group input[type="radio"] { margin: 0; accent-color: #2563eb; }
+
 /* ── Style picker ──────────────────────────────────── */
 .style-section label { font-size: 13px; font-weight: 500; color: #555; }
 #style-picker { width: 100%; padding: 6px 10px; font-size: 13px; border: 1px solid #d0d0d0; border-radius: 6px; background: #fafafa; margin-top: 4px; }

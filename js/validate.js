@@ -97,8 +97,6 @@ function parseSingleFlight(line, splitPattern) {
   const [originRaw, destRaw] = [parts[0], parts[1]];
   const origin = AirportDB.lookup(originRaw);
   const dest = AirportDB.lookup(destRaw);
-  // Silently skip same-airport flights
-  if (origin && dest && origin.icao === dest.icao) return { raw: line, skip: true };
   const errors = [];
   if (!origin) errors.push(`Unknown: ${originRaw}`);
   if (!dest) errors.push(`Unknown: ${destRaw}`);

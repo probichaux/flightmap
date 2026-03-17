@@ -30,6 +30,7 @@ KJFK, EGLL
 SFO -> SIN</pre>
       <p><strong>Upload</strong> a CSV or text file with two columns (origin and destination). The first row is treated as a header and skipped. Comma, tab, semicolon, and space delimiters are auto-detected.</p>
       <p><strong>Plot Flights</strong> (or Cmd/Ctrl+Enter) validates the codes and draws great-circle routes on the map.</p>
+      <p><strong>Distance Units</strong> switches between nautical miles (default) and kilometers. Changing units instantly updates all displayed distances.</p>
       <p><strong>Export PNG</strong> downloads the current map view as an image.</p>
     </div>
   </div>
@@ -50,6 +51,13 @@ SFO -> SIN</pre>
       </div>
       <div id="status"></div>
       <div id="flight-list"></div>
+      <div class="units-section">
+        <span class="section-label">Distance Units</span>
+        <div class="radio-group">
+          <label><input type="radio" name="units" value="nm" checked /> Nautical miles</label>
+          <label><input type="radio" name="units" value="km" /> Kilometers</label>
+        </div>
+      </div>
       <div class="style-section">
         <label for="style-picker">Map Style</label>
         <select id="style-picker"></select>

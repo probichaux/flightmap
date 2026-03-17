@@ -14,6 +14,7 @@
   // Init
   FlightMap.init();
   await AirportDB.load();
+  let lastResults = [];
 
   function setStatus(msg, type) {
     status.textContent = msg;
@@ -55,6 +56,7 @@
     }
 
     const results = FlightMap.plot(flights);
+    lastResults = results;
     const statusParts = [`${validCount} flight${validCount > 1 ? 's' : ''} plotted`];
     if (invalidCount > 0) statusParts.push(`${invalidCount} skipped`);
     setStatus(statusParts.join(', ') + '.', invalidCount > 0 ? '' : 'success');
@@ -66,6 +68,7 @@
     input.value = '';
     FlightMap.clear();
     flightListEl.innerHTML = '';
+    lastResults = [];
     setStatus('', '');
     exportBtn.disabled = true;
     updateInputButtons();
@@ -119,6 +122,15 @@
     } catch (err) {
       setStatus('Export failed: ' + err.message, 'error');
     }
+  });
+
+  // Units radio buttons
+  document.querySelectorAll('input[name="units"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      FlightMap.setUnits(radio.value);
+      // Re-render distances in the flight list
+      if (lastResults.length > 0) renderFlightList(lastResults);
+    });
   });
 
   // Style picker

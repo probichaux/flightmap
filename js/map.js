@@ -6,6 +6,7 @@ const FlightMap = (() => {
   let flightLayer;   // LayerGroup holding all arcs + markers
   let plottedFlights = []; // stored for canvas-based export
   let tileLayer;
+  let units = 'nm';  // 'nm' or 'km'
 
   const TILE_STYLES = {
     'dark':     { name: 'Dark',     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',                  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
@@ -94,8 +95,16 @@ const FlightMap = (() => {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  /** Format distance with commas and unit. */
+  /** Get/set distance units ('nm' or 'km'). */
+  function getUnits() { return units; }
+  function setUnits(u) { units = u; }
+
+  /** Format distance with commas and current unit. */
   function formatDist(km) {
+    if (units === 'nm') {
+      const nm = km / 1.852;
+      return Math.round(nm).toLocaleString() + ' nm';
+    }
     return Math.round(km).toLocaleString() + ' km';
   }
 
@@ -113,25 +122,36 @@ const FlightMap = (() => {
       const { origin, dest } = f;
       const color = COLORS[colorIdx % COLORS.length];
       colorIdx++;
+      const sameAirport = origin.icao === dest.icao;
 
-      // Arc
-      const arc = greatCircleArc(origin.lat, origin.lng, dest.lat, dest.lng);
-      L.polyline(arc, { color, weight: 2.5, opacity: 0.8 }).addTo(flightLayer);
+      if (sameAirport) {
+        // Same-airport flight: plot as a single dot
+        const markerOpts = { radius: 7, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 };
+        const popup = `<strong>${origin.local || origin.iata || origin.icao}</strong><br>${origin.name}<br>${origin.city}, ${origin.country}`;
+        L.circleMarker([origin.lat, origin.lng], markerOpts).bindPopup(popup).addTo(flightLayer);
+        bounds.push([origin.lat, origin.lng]);
+        plottedFlights.push({ origin, dest, arc: [[origin.lat, origin.lng]], color });
+        results.push({ flight: f, distance: 0 });
+      } else {
+        // Arc
+        const arc = greatCircleArc(origin.lat, origin.lng, dest.lat, dest.lng);
+        L.polyline(arc, { color, weight: 2.5, opacity: 0.8 }).addTo(flightLayer);
 
-      // Markers
-      const markerOpts = { radius: 5, fillColor: color, color: '#fff', weight: 1.5, fillOpacity: 0.9 };
-      const popupOrigin = `<strong>${origin.local || origin.iata || origin.icao}</strong><br>${origin.name}<br>${origin.city}, ${origin.country}`;
-      const popupDest = `<strong>${dest.local || dest.iata || dest.icao}</strong><br>${dest.name}<br>${dest.city}, ${dest.country}`;
-      L.circleMarker([origin.lat, origin.lng], markerOpts).bindPopup(popupOrigin).addTo(flightLayer);
-      L.circleMarker([dest.lat, dest.lng], markerOpts).bindPopup(popupDest).addTo(flightLayer);
+        // Markers
+        const markerOpts = { radius: 5, fillColor: color, color: '#fff', weight: 1.5, fillOpacity: 0.9 };
+        const popupOrigin = `<strong>${origin.local || origin.iata || origin.icao}</strong><br>${origin.name}<br>${origin.city}, ${origin.country}`;
+        const popupDest = `<strong>${dest.local || dest.iata || dest.icao}</strong><br>${dest.name}<br>${dest.city}, ${dest.country}`;
+        L.circleMarker([origin.lat, origin.lng], markerOpts).bindPopup(popupOrigin).addTo(flightLayer);
+        L.circleMarker([dest.lat, dest.lng], markerOpts).bindPopup(popupDest).addTo(flightLayer);
 
-      // Include endpoints and arc midpoint in bounds (arcs curve away from endpoints)
-      bounds.push([origin.lat, origin.lng], [dest.lat, dest.lng]);
-      const mid = arc[Math.floor(arc.length / 2)];
-      if (mid) bounds.push(mid);
-      const dist = distanceKm(origin.lat, origin.lng, dest.lat, dest.lng);
-      plottedFlights.push({ origin, dest, arc, color });
-      results.push({ flight: f, distance: dist });
+        // Include endpoints and arc midpoint in bounds (arcs curve away from endpoints)
+        bounds.push([origin.lat, origin.lng], [dest.lat, dest.lng]);
+        const mid = arc[Math.floor(arc.length / 2)];
+        if (mid) bounds.push(mid);
+        const dist = distanceKm(origin.lat, origin.lng, dest.lat, dest.lng);
+        plottedFlights.push({ origin, dest, arc, color });
+        results.push({ flight: f, distance: dist });
+      }
     }
 
     // Fit map tightly to show all flights
@@ -239,5 +259,5 @@ const FlightMap = (() => {
     });
   }
 
-  return { init, clear, plot, exportPNG, distanceKm, formatDist, setStyle, getStyles, getDefaultStyle };
+  return { init, clear, plot, exportPNG, distanceKm, formatDist, setStyle, getStyles, getDefaultStyle, getUnits, setUnits };
 })();
