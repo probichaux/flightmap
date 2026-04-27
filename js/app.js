@@ -12,6 +12,8 @@
   const flightListEl = document.getElementById('flight-list');
 
   // Init
+  const versionEl = document.getElementById('app-version');
+  if (versionEl && window.APP_VERSION) versionEl.textContent = 'v' + window.APP_VERSION;
   FlightMap.init();
   await AirportDB.load();
   let lastResults = [];
