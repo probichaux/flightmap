@@ -15,12 +15,24 @@
   const versionEl = document.getElementById('app-version');
   if (versionEl && window.APP_VERSION) versionEl.textContent = 'v' + window.APP_VERSION;
   FlightMap.init();
+  renderLegend();
   await AirportDB.load();
   let lastResults = [];
 
   function setStatus(msg, type) {
     status.textContent = msg;
     status.className = type || '';
+  }
+
+  function renderLegend() {
+    const el = document.getElementById('legend');
+    if (!el) return;
+    el.innerHTML = '';
+    for (const b of FlightMap.getVolumeBuckets()) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="legend-swatch" style="background:${b.color}"></span>${b.label}`;
+      el.appendChild(li);
+    }
   }
 
   function renderFlightList(results) {

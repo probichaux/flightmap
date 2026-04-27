@@ -85,6 +85,24 @@ const FlightMap = (() => {
     return points;
   }
 
+  /**
+   * Make adjacent longitudes continuous (each within ±180° of the previous),
+   * shifting by ±360° as needed. Output may extend outside [-180, 180]; Leaflet
+   * with worldCopyJump renders these positions on the appropriate world copy.
+   */
+  function unwrapLngs(points) {
+    if (points.length === 0) return points;
+    const out = [points[0].slice()];
+    for (let i = 1; i < points.length; i++) {
+      const prevLng = out[i - 1][1];
+      let lng = points[i][1];
+      while (lng - prevLng > 180) lng -= 360;
+      while (lng - prevLng < -180) lng += 360;
+      out.push([points[i][0], lng]);
+    }
+    return out;
+  }
+
   /** Great-circle distance in km. */
   function distanceKm(lat1, lng1, lat2, lng2) {
     const R = 6371;
@@ -108,15 +126,23 @@ const FlightMap = (() => {
     return Math.round(km).toLocaleString() + ' km';
   }
 
-  const COLORS = ['#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#65a30d'];
+  const LINE_WEIGHT = 3;
+  const ENDPOINT_COLOR = '#555';
 
-  const MIN_WEIGHT = 1.5;
-  const MAX_WEIGHT = 6;
+  // Ordered low-to-high so callers can iterate for legends/etc.
+  const VOLUME_BUCKETS = [
+    { min: 1,  max: 1,        label: '1',     color: '#16a34a' },
+    { min: 2,  max: 5,        label: '2–5',   color: '#2563eb' },
+    { min: 6,  max: 10,       label: '6–10',  color: '#7c3aed' },
+    { min: 11, max: 20,       label: '11–20', color: '#eab308' },
+    { min: 21, max: Infinity, label: '21+',   color: '#dc2626' },
+  ];
 
-  /** Sqrt-scaled line weight normalized to the dataset's count range. */
-  function routeWeight(count, maxCount) {
-    if (maxCount <= 1) return MIN_WEIGHT;
-    return MIN_WEIGHT + (MAX_WEIGHT - MIN_WEIGHT) * (Math.sqrt(count) - 1) / (Math.sqrt(maxCount) - 1);
+  function routeColor(count) {
+    for (let i = VOLUME_BUCKETS.length - 1; i >= 0; i--) {
+      if (count >= VOLUME_BUCKETS[i].min) return VOLUME_BUCKETS[i].color;
+    }
+    return VOLUME_BUCKETS[0].color;
   }
 
   /** Plot an array of validated flights. Returns array of { flight, distance }. */
@@ -140,42 +166,37 @@ const FlightMap = (() => {
       routeMap.get(key).count++;
     }
 
-    // Compute max count for weight scaling
-    const maxCount = Math.max(...[...routeMap.values()].map(r => r.count));
-
     // Second pass: draw one line per unique route, one marker per unique airport
-    let colorIdx = 0;
-    const airportMarkers = new Map(); // icao → { airport, color }
+    const airportMarkers = new Map(); // icao → airport
 
     for (const [, route] of routeMap) {
-      const color = COLORS[colorIdx % COLORS.length];
-      colorIdx++;
-      const weight = routeWeight(route.count, maxCount);
+      const color = routeColor(route.count);
 
       if (route.sameAirport) {
-        const markerOpts = { radius: 5 + weight, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 };
+        const markerOpts = { radius: 7, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 };
         const popup = `<strong>${route.origin.local || route.origin.iata || route.origin.icao}</strong><br>${route.origin.name}<br>${route.origin.city}, ${route.origin.country}`;
         L.circleMarker([route.origin.lat, route.origin.lng], markerOpts).bindPopup(popup).addTo(flightLayer);
         bounds.push([route.origin.lat, route.origin.lng]);
-        plottedFlights.push({ origin: route.origin, dest: route.dest, arc: [[route.origin.lat, route.origin.lng]], color, weight });
+        plottedFlights.push({ origin: route.origin, dest: route.dest, segments: [[[route.origin.lat, route.origin.lng]]], color, weight: LINE_WEIGHT });
       } else {
-        const arc = greatCircleArc(route.origin.lat, route.origin.lng, route.dest.lat, route.dest.lng);
-        L.polyline(arc, { color, weight, opacity: 0.8 }).addTo(flightLayer);
-        bounds.push([route.origin.lat, route.origin.lng], [route.dest.lat, route.dest.lng]);
+        const arc = unwrapLngs(greatCircleArc(route.origin.lat, route.origin.lng, route.dest.lat, route.dest.lng));
+        const destLng = arc[arc.length - 1][1]; // possibly outside [-180, 180] for trans-antimeridian routes
+        L.polyline(arc, { color, weight: LINE_WEIGHT, opacity: 0.85 }).addTo(flightLayer);
+        bounds.push([route.origin.lat, route.origin.lng], [route.dest.lat, destLng]);
         const mid = arc[Math.floor(arc.length / 2)];
         if (mid) bounds.push(mid);
-        plottedFlights.push({ origin: route.origin, dest: route.dest, arc, color, weight });
+        plottedFlights.push({ origin: route.origin, dest: route.dest, segments: [arc], color, weight: LINE_WEIGHT });
 
-        if (!airportMarkers.has(route.origin.icao)) airportMarkers.set(route.origin.icao, { airport: route.origin, color });
-        if (!airportMarkers.has(route.dest.icao)) airportMarkers.set(route.dest.icao, { airport: route.dest, color });
+        if (!airportMarkers.has(route.origin.icao)) airportMarkers.set(route.origin.icao, { airport: route.origin, lat: route.origin.lat, lng: route.origin.lng });
+        if (!airportMarkers.has(route.dest.icao)) airportMarkers.set(route.dest.icao, { airport: route.dest, lat: route.dest.lat, lng: destLng });
       }
     }
 
-    // Draw one marker per unique airport
-    for (const [, { airport, color }] of airportMarkers) {
-      const markerOpts = { radius: 5, fillColor: color, color: '#fff', weight: 1.5, fillOpacity: 0.9 };
+    // Draw one neutral marker per unique endpoint airport (color is reserved for route volume).
+    for (const { airport, lat, lng } of airportMarkers.values()) {
+      const markerOpts = { radius: 5, fillColor: ENDPOINT_COLOR, color: '#fff', weight: 1.5, fillOpacity: 0.9 };
       const popup = `<strong>${airport.local || airport.iata || airport.icao}</strong><br>${airport.name}<br>${airport.city}, ${airport.country}`;
-      L.circleMarker([airport.lat, airport.lng], markerOpts).bindPopup(popup).addTo(flightLayer);
+      L.circleMarker([lat, lng], markerOpts).bindPopup(popup).addTo(flightLayer);
     }
 
     if (bounds.length > 0) {
@@ -230,25 +251,34 @@ const FlightMap = (() => {
   /** Draw stored flight arcs and markers onto a canvas. */
   function drawFlights(ctx) {
     for (const pf of plottedFlights) {
-      // Draw arc
-      ctx.beginPath();
+      // Draw each segment as a separate path so antimeridian-split routes don't
+      // backtrack across the canvas.
       ctx.strokeStyle = pf.color;
       ctx.lineWidth = pf.weight || 2.5;
-      ctx.globalAlpha = 0.8;
-      for (let i = 0; i < pf.arc.length; i++) {
-        const pt = map.latLngToContainerPoint(pf.arc[i]);
-        if (i === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
+      ctx.globalAlpha = 0.85;
+      for (const seg of pf.segments) {
+        if (seg.length < 2) continue;
+        ctx.beginPath();
+        for (let i = 0; i < seg.length; i++) {
+          const pt = map.latLngToContainerPoint(seg[i]);
+          if (i === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
       ctx.globalAlpha = 1;
 
-      // Draw markers
-      for (const airport of [pf.origin, pf.dest]) {
+      // Draw markers — colored for same-airport routes, neutral for normal endpoints.
+      const totalPoints = pf.segments.reduce((s, seg) => s + seg.length, 0);
+      const sameAirport = totalPoints <= 1;
+      const markerFill = sameAirport ? pf.color : ENDPOINT_COLOR;
+      const markerRadius = sameAirport ? 7 : 5;
+      const endpoints = sameAirport ? [pf.origin] : [pf.origin, pf.dest];
+      for (const airport of endpoints) {
         const pt = map.latLngToContainerPoint([airport.lat, airport.lng]);
         ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = pf.color;
+        ctx.arc(pt.x, pt.y, markerRadius, 0, Math.PI * 2);
+        ctx.fillStyle = markerFill;
         ctx.globalAlpha = 0.9;
         ctx.fill();
         ctx.globalAlpha = 1;
@@ -282,5 +312,5 @@ const FlightMap = (() => {
     });
   }
 
-  return { init, clear, plot, exportPNG, distanceKm, formatDist, setStyle, getStyles, getDefaultStyle, getUnits, setUnits };
+  return { init, clear, plot, exportPNG, distanceKm, formatDist, setStyle, getStyles, getDefaultStyle, getUnits, setUnits, getVolumeBuckets: () => VOLUME_BUCKETS };
 })();
