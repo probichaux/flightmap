@@ -9,6 +9,7 @@
   const fileInput = document.getElementById('file-input');
   const exportBtn = document.getElementById('export-btn');
   const status = document.getElementById('status');
+  const skippedEl = document.getElementById('skipped-airports');
   const flightListEl = document.getElementById('flight-list');
 
   // Init
@@ -33,6 +34,25 @@
       li.innerHTML = `<span class="legend-swatch" style="background:${b.color}"></span>${b.label}`;
       el.appendChild(li);
     }
+  }
+
+  function renderSkippedAirports(flights) {
+    const unknown = new Set();
+    for (const f of flights) {
+      if (f.valid) continue;
+      if (f.originRaw && !f.origin) unknown.add(f.originRaw.toUpperCase());
+      if (f.destRaw && !f.dest) unknown.add(f.destRaw.toUpperCase());
+    }
+    if (unknown.size === 0) {
+      skippedEl.hidden = true;
+      skippedEl.innerHTML = '';
+      return;
+    }
+    const codes = [...unknown].sort();
+    const label = `Unrecognized airport${codes.length > 1 ? 's' : ''}:`;
+    skippedEl.innerHTML = `<span class="label">${label}</span> ` +
+      codes.map(c => `<code>${c}</code>`).join('');
+    skippedEl.hidden = false;
   }
 
   function renderFlightList(results) {
@@ -64,6 +84,7 @@
 
     if (validCount === 0) {
       setStatus(`No valid flights found (${invalidCount} error${invalidCount > 1 ? 's' : ''}).`, 'error');
+      renderSkippedAirports(flights);
       renderFlightList(flights.map(f => ({ flight: f, distance: null })));
       exportBtn.disabled = true;
       return;
@@ -74,6 +95,7 @@
     const statusParts = [`${validCount} flight${validCount > 1 ? 's' : ''} plotted`];
     if (invalidCount > 0) statusParts.push(`${invalidCount} skipped`);
     setStatus(statusParts.join(', ') + '.', invalidCount > 0 ? '' : 'success');
+    renderSkippedAirports(flights);
     renderFlightList(results);
     exportBtn.disabled = false;
   }
@@ -81,6 +103,8 @@
   function doClear() {
     input.value = '';
     FlightMap.clear();
+    skippedEl.hidden = true;
+    skippedEl.innerHTML = '';
     flightListEl.innerHTML = '';
     lastResults = [];
     setStatus('', '');
