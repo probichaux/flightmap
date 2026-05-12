@@ -12,6 +12,12 @@
   const skippedEl = document.getElementById('skipped-airports');
   const flightListEl = document.getElementById('flight-list');
 
+  // N-number lookup refs
+  const nnumInput = document.getElementById('nnum-input');
+  const nnumBtn = document.getElementById('nnum-btn');
+  const openskyIdInput = document.getElementById('opensky-client-id');
+  const openskySecretInput = document.getElementById('opensky-client-secret');
+
   // Init
   const versionEl = document.getElementById('app-version');
   if (versionEl && window.APP_VERSION) versionEl.textContent = 'v' + window.APP_VERSION;
@@ -117,6 +123,54 @@
     plotBtn.disabled = !hasText;
     clearBtn.disabled = !hasText;
   }
+
+  // Load saved OpenSky credentials
+  const creds = OpenSky.getCredentials();
+  openskyIdInput.value = creds.clientId;
+  openskySecretInput.value = creds.clientSecret;
+  openskyIdInput.addEventListener('change', () => {
+    OpenSky.setCredentials(openskyIdInput.value, openskySecretInput.value);
+  });
+  openskySecretInput.addEventListener('change', () => {
+    OpenSky.setCredentials(openskyIdInput.value, openskySecretInput.value);
+  });
+
+  // N-number fetch
+  async function doNnumFetch() {
+    const reg = nnumInput.value.trim();
+    if (!reg) { setStatus('Enter a registration number.', 'error'); return; }
+
+    nnumBtn.disabled = true;
+    nnumBtn.textContent = 'Fetching...';
+    setStatus('Fetching flights for ' + reg.toUpperCase() + '...', '');
+
+    try {
+      const flights = await OpenSky.fetchFlights(reg, (done, total) => {
+        setStatus(`Fetching flights for ${reg.toUpperCase()}... (${done}/${total})`, '');
+      });
+      const lines = OpenSky.toFlightLines(flights);
+
+      if (lines.length === 0) {
+        setStatus('No flights with known airports found for ' + reg.toUpperCase() + '.', 'error');
+        return;
+      }
+
+      // Populate textarea and plot
+      input.value = lines.join('\n');
+      updateInputButtons();
+      doPlotParsed(parseFlights(input.value));
+    } catch (err) {
+      setStatus(err.message, 'error');
+    } finally {
+      nnumBtn.disabled = false;
+      nnumBtn.textContent = 'Fetch';
+    }
+  }
+
+  nnumBtn.addEventListener('click', doNnumFetch);
+  nnumInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doNnumFetch();
+  });
 
   // Start with buttons disabled
   updateInputButtons();

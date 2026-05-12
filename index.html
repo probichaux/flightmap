@@ -29,6 +29,7 @@ LAX NRT
 KJFK, EGLL
 SFO -> SIN</pre>
       <p><strong>Upload</strong> a CSV or text file with two columns (origin and destination). The first row is treated as a header and skipped. Comma, tab, semicolon, and space delimiters are auto-detected.</p>
+      <p><strong>Look up by tail number</strong> fetches the last 120 days of flights from OpenSky Network for a US aircraft registration (e.g., N12345). You need a free OpenSky account — add your API credentials under <em>OpenSky Settings</em> at the bottom of the sidebar.</p>
       <p><strong>Plot Flights</strong> (or Cmd/Ctrl+Enter) validates the codes and draws great-circle routes on the map.</p>
       <p><strong>Distance Units</strong> switches between nautical miles (default) and kilometers. Changing units instantly updates all displayed distances.</p>
       <p><strong>Export PNG</strong> downloads the current map view as an image.</p>
@@ -49,6 +50,16 @@ SFO -> SIN</pre>
           </label>
         </div>
       </div>
+      <div class="section-divider"><span>or look up by tail number</span></div>
+      <div class="lookup-section">
+        <label for="nnum-input">Aircraft Registration</label>
+        <div class="nnum-row">
+          <input type="text" id="nnum-input" placeholder="N12345" spellcheck="false" />
+          <button id="nnum-btn" type="button">Fetch</button>
+        </div>
+        <p class="lookup-hint">Fetches last 120 days via OpenSky Network</p>
+      </div>
+
       <div id="status"></div>
       <div id="skipped-airports" hidden></div>
       <div id="flight-list"></div>
@@ -70,6 +81,14 @@ SFO -> SIN</pre>
       <div class="export-section">
         <button id="export-btn" type="button" disabled>Export PNG</button>
       </div>
+      <details class="api-key-section">
+        <summary>OpenSky Settings</summary>
+        <label for="opensky-client-id">Client ID</label>
+        <input type="text" id="opensky-client-id" placeholder="Client ID" spellcheck="false" />
+        <label for="opensky-client-secret">Client Secret</label>
+        <input type="password" id="opensky-client-secret" placeholder="Client secret" />
+        <p class="api-key-help">Free account at <a href="https://opensky-network.org" target="_blank" rel="noopener">opensky-network.org</a> &mdash; create an API client on your Account page.</p>
+      </details>
     </aside>
 
     <main>
@@ -83,6 +102,7 @@ SFO -> SIN</pre>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/version.js"></script>
   <script src="js/validate.js"></script>
+  <script src="js/opensky.js"></script>
   <script src="js/map.js"></script>
   <script src="js/app.js"></script>
 </body>

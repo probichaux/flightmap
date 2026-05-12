@@ -1,1 +1,4 @@
 data/airport-codes.csv
+.wrangler/
+node_modules/
+.DS_Store
