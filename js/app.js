@@ -51,28 +51,55 @@
     }
     if (unknown.size === 0) {
       skippedEl.hidden = true;
-      skippedEl.innerHTML = '';
+      skippedEl.replaceChildren();
       return;
     }
     const codes = [...unknown].sort();
     const label = `Unrecognized airport${codes.length > 1 ? 's' : ''}:`;
-    skippedEl.innerHTML = `<span class="label">${label}</span> ` +
-      codes.map(c => `<code>${c}</code>`).join('');
+
+    skippedEl.replaceChildren();
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'label';
+    labelSpan.textContent = label;
+    skippedEl.appendChild(labelSpan);
+    skippedEl.appendChild(document.createTextNode(' '));
+    for (const c of codes) {
+      const code = document.createElement('code');
+      code.textContent = c;
+      skippedEl.appendChild(code);
+    }
     skippedEl.hidden = false;
   }
 
   function renderFlightList(results) {
-    flightListEl.innerHTML = '';
+    flightListEl.replaceChildren();
     for (const r of results) {
       const div = document.createElement('div');
       div.className = 'flight-item' + (r.flight.valid ? '' : ' invalid');
+
+      const codesSpan = document.createElement('span');
+      codesSpan.className = 'codes';
+      const distSpan = document.createElement('span');
+      distSpan.className = 'distance';
+
       if (r.flight.valid) {
-        div.innerHTML = `
-          <span class="codes">${r.flight.origin.local || r.flight.origin.iata || r.flight.origin.icao} &rarr; ${r.flight.dest.local || r.flight.dest.iata || r.flight.dest.icao}</span>
-          <span class="distance">${FlightMap.formatDist(r.distance)}</span>`;
+        const originCode = r.flight.origin.local || r.flight.origin.iata || r.flight.origin.icao;
+        const destCode = r.flight.dest.local || r.flight.dest.iata || r.flight.dest.icao;
+        codesSpan.textContent = originCode;
+        codesSpan.appendChild(document.createTextNode(' '));
+        const arrow = document.createElement('span');
+        arrow.setAttribute('aria-hidden', 'true');
+        arrow.textContent = '→';
+        codesSpan.appendChild(arrow);
+        codesSpan.appendChild(document.createTextNode(' ' + destCode));
+        distSpan.textContent = FlightMap.formatDist(r.distance);
       } else {
-        div.innerHTML = `<span class="codes">${r.flight.raw}</span><span class="distance">${r.flight.error}</span>`;
+        codesSpan.textContent = r.flight.raw;
+        distSpan.textContent = r.flight.error || '';
       }
+
+      div.appendChild(codesSpan);
+      div.appendChild(distSpan);
       flightListEl.appendChild(div);
     }
   }
@@ -110,8 +137,8 @@
     input.value = '';
     FlightMap.clear();
     skippedEl.hidden = true;
-    skippedEl.innerHTML = '';
-    flightListEl.innerHTML = '';
+    skippedEl.replaceChildren();
+    flightListEl.replaceChildren();
     lastResults = [];
     setStatus('', '');
     exportBtn.disabled = true;
