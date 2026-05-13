@@ -34,10 +34,14 @@
   function renderLegend() {
     const el = document.getElementById('legend');
     if (!el) return;
-    el.innerHTML = '';
+    el.replaceChildren();
     for (const b of FlightMap.getVolumeBuckets()) {
       const li = document.createElement('li');
-      li.innerHTML = `<span class="legend-swatch" style="background:${b.color}"></span>${b.label}`;
+      const swatch = document.createElement('span');
+      swatch.className = 'legend-swatch';
+      swatch.style.background = b.color;
+      li.appendChild(swatch);
+      li.appendChild(document.createTextNode(b.label));
       el.appendChild(li);
     }
   }

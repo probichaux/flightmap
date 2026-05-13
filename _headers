@@ -1,0 +1,8 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  # style-src requires 'unsafe-inline' because Leaflet sets inline styles on map elements.
+  # script-src allows unpkg.com until Leaflet is vendored (SEC-4).
+  Content-Security-Policy: default-src 'none'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com 'unsafe-inline'; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://server.arcgisonline.com; connect-src 'self'; font-src 'self'; frame-ancestors 'none';
