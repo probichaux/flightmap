@@ -2,6 +2,16 @@
  * Map initialization, flight plotting, and PNG export.
  */
 const FlightMap = (() => {
+  /** Escape HTML metacharacters so airport data is safe in bindPopup strings. */
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   let map;
   let flightLayer;   // LayerGroup holding all arcs + markers
   let plottedFlights = []; // stored for canvas-based export
@@ -174,7 +184,7 @@ const FlightMap = (() => {
 
       if (route.sameAirport) {
         const markerOpts = { radius: 7, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 };
-        const popup = `<strong>${route.origin.local || route.origin.iata || route.origin.icao}</strong><br>${route.origin.name}<br>${route.origin.city}, ${route.origin.country}`;
+        const popup = `<strong>${escHtml(route.origin.local || route.origin.iata || route.origin.icao)}</strong><br>${escHtml(route.origin.name)}<br>${escHtml(route.origin.city)}, ${escHtml(route.origin.country)}`;
         L.circleMarker([route.origin.lat, route.origin.lng], markerOpts).bindPopup(popup).addTo(flightLayer);
         bounds.push([route.origin.lat, route.origin.lng]);
         plottedFlights.push({ origin: route.origin, dest: route.dest, segments: [[[route.origin.lat, route.origin.lng]]], color, weight: LINE_WEIGHT });
@@ -195,7 +205,7 @@ const FlightMap = (() => {
     // Draw one neutral marker per unique endpoint airport (color is reserved for route volume).
     for (const { airport, lat, lng } of airportMarkers.values()) {
       const markerOpts = { radius: 5, fillColor: ENDPOINT_COLOR, color: '#fff', weight: 1.5, fillOpacity: 0.9 };
-      const popup = `<strong>${airport.local || airport.iata || airport.icao}</strong><br>${airport.name}<br>${airport.city}, ${airport.country}`;
+      const popup = `<strong>${escHtml(airport.local || airport.iata || airport.icao)}</strong><br>${escHtml(airport.name)}<br>${escHtml(airport.city)}, ${escHtml(airport.country)}`;
       L.circleMarker([lat, lng], markerOpts).bindPopup(popup).addTo(flightLayer);
     }
 
