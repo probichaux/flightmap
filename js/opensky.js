@@ -12,19 +12,22 @@ const OpenSky = (() => {
   const CONCURRENCY = 5;
 
   // ── Credentials ──────────────────────────────────────
+  // Credentials are stored in sessionStorage (not localStorage) so they are
+  // not persisted across browser sessions, limiting exposure if an XSS payload
+  // ever runs on this page.
 
   function getCredentials() {
     return {
-      clientId: localStorage.getItem(STORAGE_KEY_ID) || '',
-      clientSecret: localStorage.getItem(STORAGE_KEY_SECRET) || '',
+      clientId: sessionStorage.getItem(STORAGE_KEY_ID) || '',
+      clientSecret: sessionStorage.getItem(STORAGE_KEY_SECRET) || '',
     };
   }
 
   function setCredentials(clientId, clientSecret) {
-    if (clientId) localStorage.setItem(STORAGE_KEY_ID, clientId.trim());
-    else localStorage.removeItem(STORAGE_KEY_ID);
-    if (clientSecret) localStorage.setItem(STORAGE_KEY_SECRET, clientSecret.trim());
-    else localStorage.removeItem(STORAGE_KEY_SECRET);
+    if (clientId) sessionStorage.setItem(STORAGE_KEY_ID, clientId.trim());
+    else sessionStorage.removeItem(STORAGE_KEY_ID);
+    if (clientSecret) sessionStorage.setItem(STORAGE_KEY_SECRET, clientSecret.trim());
+    else sessionStorage.removeItem(STORAGE_KEY_SECRET);
   }
 
   // ── OAuth2 token ─────────────────────────────────────
