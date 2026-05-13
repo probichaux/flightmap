@@ -1,2 +1,4 @@
 name = "flightmap"
 pages_build_output_dir = "."
+# account_id is read from the CLOUDFLARE_ACCOUNT_ID environment variable at deploy time.
+# Set it in your shell or in the CI/CD environment — do not hardcode it here.
