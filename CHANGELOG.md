@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.2 — 2026-06-02
+
+### Added
+- Airport dot size slider (range 2–12 px) in the sidebar; re-plots live when adjusted
+
 ## 0.1.0 — 2026-03-13
 
 Initial release.

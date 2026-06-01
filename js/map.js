@@ -17,6 +17,7 @@ const FlightMap = (() => {
   let plottedFlights = []; // stored for canvas-based export
   let tileLayer;
   let units = 'nm';  // 'nm' or 'km'
+  let dotSize = 5;   // airport marker radius in px
 
   const TILE_STYLES = {
     'dark':     { name: 'Dark',     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',                  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
@@ -183,7 +184,7 @@ const FlightMap = (() => {
       const color = routeColor(route.count);
 
       if (route.sameAirport) {
-        const markerOpts = { radius: 7, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 };
+        const markerOpts = { radius: dotSize + 2, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 };
         const popup = `<strong>${escHtml(route.origin.local || route.origin.iata || route.origin.icao)}</strong><br>${escHtml(route.origin.name)}<br>${escHtml(route.origin.city)}, ${escHtml(route.origin.country)}`;
         L.circleMarker([route.origin.lat, route.origin.lng], markerOpts).bindPopup(popup).addTo(flightLayer);
         bounds.push([route.origin.lat, route.origin.lng]);
@@ -204,7 +205,7 @@ const FlightMap = (() => {
 
     // Draw one neutral marker per unique endpoint airport (color is reserved for route volume).
     for (const { airport, lat, lng } of airportMarkers.values()) {
-      const markerOpts = { radius: 5, fillColor: ENDPOINT_COLOR, color: '#fff', weight: 1.5, fillOpacity: 0.9 };
+      const markerOpts = { radius: dotSize, fillColor: ENDPOINT_COLOR, color: '#fff', weight: 1.5, fillOpacity: 0.9 };
       const popup = `<strong>${escHtml(airport.local || airport.iata || airport.icao)}</strong><br>${escHtml(airport.name)}<br>${escHtml(airport.city)}, ${escHtml(airport.country)}`;
       L.circleMarker([lat, lng], markerOpts).bindPopup(popup).addTo(flightLayer);
     }
@@ -282,7 +283,7 @@ const FlightMap = (() => {
       const totalPoints = pf.segments.reduce((s, seg) => s + seg.length, 0);
       const sameAirport = totalPoints <= 1;
       const markerFill = sameAirport ? pf.color : ENDPOINT_COLOR;
-      const markerRadius = sameAirport ? 7 : 5;
+      const markerRadius = sameAirport ? dotSize + 2 : dotSize;
       const endpoints = sameAirport ? [pf.origin] : [pf.origin, pf.dest];
       for (const airport of endpoints) {
         const pt = map.latLngToContainerPoint([airport.lat, airport.lng]);
@@ -322,5 +323,8 @@ const FlightMap = (() => {
     });
   }
 
-  return { init, clear, plot, exportPNG, distanceKm, formatDist, setStyle, getStyles, getDefaultStyle, getUnits, setUnits, getVolumeBuckets: () => VOLUME_BUCKETS };
+  function getDotSize() { return dotSize; }
+  function setDotSize(n) { dotSize = Math.max(1, n); }
+
+  return { init, clear, plot, exportPNG, distanceKm, formatDist, setStyle, getStyles, getDefaultStyle, getUnits, setUnits, getDotSize, setDotSize, getVolumeBuckets: () => VOLUME_BUCKETS };
 })();

@@ -256,6 +256,16 @@
     });
   });
 
+  // Dot size slider
+  const dotSizeSlider = document.getElementById('dot-size-slider');
+  const dotSizeValue = document.getElementById('dot-size-value');
+  dotSizeSlider.addEventListener('input', () => {
+    const size = parseInt(dotSizeSlider.value, 10);
+    dotSizeValue.textContent = size;
+    FlightMap.setDotSize(size);
+    if (lastResults.some(r => r.flight.valid)) doPlot();
+  });
+
   // Style picker
   const stylePicker = document.getElementById('style-picker');
   const styles = FlightMap.getStyles();
