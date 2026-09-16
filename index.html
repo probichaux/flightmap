@@ -65,10 +65,6 @@ SFO -> SIN</pre>
       <div id="status"></div>
       <div id="skipped-airports" hidden></div>
       <div id="flight-list"></div>
-      <div class="legend-section">
-        <span class="section-label">Flight Volume</span>
-        <ul class="legend" id="legend"></ul>
-      </div>
       <div class="units-section">
         <span class="section-label">Distance Units</span>
         <div class="radio-group">
@@ -83,6 +79,13 @@ SFO -> SIN</pre>
       <div class="dot-size-section">
         <label for="dot-size-slider">Airport dot size: <span id="dot-size-value">5</span></label>
         <input type="range" id="dot-size-slider" min="2" max="12" step="1" value="5" />
+      </div>
+      <div class="toggle-section">
+        <label class="toggle" for="show-routes-toggle">
+          <span class="toggle-label">Show routes</span>
+          <input type="checkbox" id="show-routes-toggle" role="switch" checked />
+          <span class="toggle-track" aria-hidden="true"></span>
+        </label>
       </div>
       <div class="export-section">
         <button id="export-btn" type="button" disabled>Export PNG</button>

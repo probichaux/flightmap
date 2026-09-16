@@ -16,25 +16,56 @@ const FlightMap = (() => {
   let flightLayer;   // LayerGroup holding all arcs + markers
   let plottedFlights = []; // stored for canvas-based export
   let tileLayer;
+  let legendControl;
   let units = 'nm';  // 'nm' or 'km'
   let dotSize = 5;   // airport marker radius in px
+  let showRoutes = true; // draw great-circle lines between airports
 
   const TILE_STYLES = {
-    'dark':     { name: 'Dark',     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',                  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
-    'light':    { name: 'Light',    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
-    'voyager':  { name: 'Voyager',  url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
-    'osm':      { name: 'Standard', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' },
-    'esri-gray':{ name: 'Gray',     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: '&copy; Esri', subdomains: [] },
+    'dark':    { name: 'Dark',     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',  attribution: '&copy; Esri', subdomains: [] },
+    'light':   { name: 'Light',    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: '&copy; Esri', subdomains: [] },
+    'streets': { name: 'Streets',  url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',            attribution: '&copy; Esri', subdomains: [] },
+    'osm':     { name: 'Standard', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                                                          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' },
   };
 
-  const DEFAULT_STYLE = 'voyager';
+  const DEFAULT_STYLE = 'streets';
 
   /** Initialise the Leaflet map. */
   function init() {
     map = L.map('map', { zoomControl: true, worldCopyJump: true }).setView([30, 0], 2);
     setStyle(DEFAULT_STYLE);
     flightLayer = L.layerGroup().addTo(map);
+    addLegendControl();
     return map;
+  }
+
+  /** Add the flight-volume legend as a Leaflet control in the bottom-left corner. */
+  function addLegendControl() {
+    const Legend = L.Control.extend({
+      onAdd() {
+        const div = L.DomUtil.create('div', 'map-legend');
+        const title = L.DomUtil.create('div', 'map-legend-title', div);
+        title.textContent = LEGEND_TITLE;
+        const ul = L.DomUtil.create('ul', null, div);
+        for (const b of VOLUME_BUCKETS) {
+          const li = L.DomUtil.create('li', null, ul);
+          const swatch = L.DomUtil.create('span', 'map-legend-swatch', li);
+          swatch.style.background = b.color;
+          li.appendChild(document.createTextNode(b.label));
+        }
+        L.DomEvent.disableClickPropagation(div);
+        return div;
+      },
+    });
+    legendControl = new Legend({ position: 'bottomleft' }).addTo(map);
+    updateLegend();
+  }
+
+  /** Show the legend only when route lines (and therefore their colors) are drawn. */
+  function updateLegend() {
+    if (!legendControl) return;
+    const el = legendControl.getContainer();
+    if (el) el.style.display = showRoutes ? '' : 'none';
   }
 
   /** Switch tile layer style. */
@@ -139,6 +170,7 @@ const FlightMap = (() => {
 
   const LINE_WEIGHT = 3;
   const ENDPOINT_COLOR = '#555';
+  const LEGEND_TITLE = 'Flight Volume';
 
   // Ordered low-to-high so callers can iterate for legends/etc.
   const VOLUME_BUCKETS = [
@@ -188,15 +220,17 @@ const FlightMap = (() => {
         const popup = `<strong>${escHtml(route.origin.local || route.origin.iata || route.origin.icao)}</strong><br>${escHtml(route.origin.name)}<br>${escHtml(route.origin.city)}, ${escHtml(route.origin.country)}`;
         L.circleMarker([route.origin.lat, route.origin.lng], markerOpts).bindPopup(popup).addTo(flightLayer);
         bounds.push([route.origin.lat, route.origin.lng]);
-        plottedFlights.push({ origin: route.origin, dest: route.dest, segments: [[[route.origin.lat, route.origin.lng]]], color, weight: LINE_WEIGHT });
+        plottedFlights.push({ origin: route.origin, dest: route.dest, sameAirport: true, segments: [], color, weight: LINE_WEIGHT });
       } else {
         const arc = unwrapLngs(greatCircleArc(route.origin.lat, route.origin.lng, route.dest.lat, route.dest.lng));
         const destLng = arc[arc.length - 1][1]; // possibly outside [-180, 180] for trans-antimeridian routes
-        L.polyline(arc, { color, weight: LINE_WEIGHT, opacity: 0.85 }).addTo(flightLayer);
         bounds.push([route.origin.lat, route.origin.lng], [route.dest.lat, destLng]);
-        const mid = arc[Math.floor(arc.length / 2)];
-        if (mid) bounds.push(mid);
-        plottedFlights.push({ origin: route.origin, dest: route.dest, segments: [arc], color, weight: LINE_WEIGHT });
+        if (showRoutes) {
+          L.polyline(arc, { color, weight: LINE_WEIGHT, opacity: 0.85 }).addTo(flightLayer);
+          const mid = arc[Math.floor(arc.length / 2)];
+          if (mid) bounds.push(mid);
+        }
+        plottedFlights.push({ origin: route.origin, dest: route.dest, sameAirport: false, segments: showRoutes ? [arc] : [], color, weight: LINE_WEIGHT });
 
         if (!airportMarkers.has(route.origin.icao)) airportMarkers.set(route.origin.icao, { airport: route.origin, lat: route.origin.lat, lng: route.origin.lng });
         if (!airportMarkers.has(route.dest.icao)) airportMarkers.set(route.dest.icao, { airport: route.dest, lat: route.dest.lat, lng: destLng });
@@ -280,8 +314,7 @@ const FlightMap = (() => {
       ctx.globalAlpha = 1;
 
       // Draw markers — colored for same-airport routes, neutral for normal endpoints.
-      const totalPoints = pf.segments.reduce((s, seg) => s + seg.length, 0);
-      const sameAirport = totalPoints <= 1;
+      const sameAirport = pf.sameAirport;
       const markerFill = sameAirport ? pf.color : ENDPOINT_COLOR;
       const markerRadius = sameAirport ? dotSize + 2 : dotSize;
       const endpoints = sameAirport ? [pf.origin] : [pf.origin, pf.dest];
@@ -300,6 +333,54 @@ const FlightMap = (() => {
     }
   }
 
+  /** Draw the flight-volume legend box onto the export canvas (bottom-left). */
+  function drawLegend(ctx, canvasHeight) {
+    if (!showRoutes) return;
+    const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+    const pad = 10, rowH = 18, swatchW = 20, swatchH = 3, gap = 8, margin = 10;
+    const titleH = 18;
+    const boxH = pad + titleH + VOLUME_BUCKETS.length * rowH + pad - 4;
+
+    ctx.font = `600 12px ${font}`;
+    let textW = ctx.measureText(LEGEND_TITLE).width;
+    ctx.font = `12px ${font}`;
+    for (const b of VOLUME_BUCKETS) textW = Math.max(textW, swatchW + gap + ctx.measureText(b.label).width);
+    const boxW = pad * 2 + textW;
+
+    const x = margin, y = canvasHeight - margin - boxH;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.beginPath();
+    ctx.roundRect(x, y, boxW, boxH, 6);
+    ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x + 0.5, y + 0.5, boxW - 1, boxH - 1, 6);
+    ctx.stroke();
+
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#555';
+    ctx.font = `600 12px ${font}`;
+    ctx.fillText(LEGEND_TITLE, x + pad, y + pad + titleH / 2 - 2);
+    ctx.font = `12px ${font}`;
+    let rowY = y + pad + titleH;
+    for (const b of VOLUME_BUCKETS) {
+      const cy = rowY + rowH / 2 - 2;
+      ctx.fillStyle = b.color;
+      ctx.beginPath();
+      ctx.roundRect(x + pad, cy - swatchH / 2, swatchW, swatchH, 2);
+      ctx.fill();
+      ctx.fillStyle = '#555';
+      ctx.fillText(b.label, x + pad + swatchW + gap, cy);
+      rowY += rowH;
+    }
+  }
+
   /** Export map as PNG by redrawing tiles and flights onto a fresh canvas. */
   async function exportPNG() {
     const size = map.getSize();
@@ -313,6 +394,7 @@ const FlightMap = (() => {
 
     await drawTiles(ctx);
     drawFlights(ctx);
+    drawLegend(ctx, size.y);
 
     canvas.toBlob(blob => {
       const a = document.createElement('a');
@@ -325,6 +407,8 @@ const FlightMap = (() => {
 
   function getDotSize() { return dotSize; }
   function setDotSize(n) { dotSize = Math.max(1, n); }
+  function getShowRoutes() { return showRoutes; }
+  function setShowRoutes(on) { showRoutes = Boolean(on); updateLegend(); }
 
-  return { init, clear, plot, exportPNG, distanceKm, formatDist, setStyle, getStyles, getDefaultStyle, getUnits, setUnits, getDotSize, setDotSize, getVolumeBuckets: () => VOLUME_BUCKETS };
+  return { init, clear, plot, exportPNG, distanceKm, formatDist, setStyle, getStyles, getDefaultStyle, getUnits, setUnits, getDotSize, setDotSize, getShowRoutes, setShowRoutes, getVolumeBuckets: () => VOLUME_BUCKETS };
 })();

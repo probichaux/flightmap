@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.1.3 — 2026-09-16
+
+### Added
+
+- "Show routes" toggle in the sidebar (on by default); when off, airports
+  are plotted without the connecting route lines, in both the map and PNG
+  export
+
+### Changed
+
+- Flight volume legend moved from the sidebar to an overlay box in the
+  bottom-left corner of the map. It is included in PNG exports and hidden
+  when "Show routes" is off.
+- Map styles now use Esri basemaps (Dark Gray, Light Gray, World Street Map)
+  instead of CARTO, whose free tiles now carry an "API key required"
+  watermark. The Voyager and Gray styles are replaced by Streets and Light;
+  Streets is the new default.
+- Content Security Policy no longer allows the CARTO tile host.
+
+### Fixed
+
+- Added airport 3ID9; aliased retired codes KHTO to KJPX and X68 to KTTS.
+
 ## 1.1.2 — 2026-06-02
 
 ### Added

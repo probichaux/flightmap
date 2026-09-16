@@ -22,28 +22,12 @@
   const versionEl = document.getElementById('app-version');
   if (versionEl && window.APP_VERSION) versionEl.textContent = 'v' + window.APP_VERSION;
   FlightMap.init();
-  renderLegend();
   await AirportDB.load();
   let lastResults = [];
 
   function setStatus(msg, type) {
     status.textContent = msg;
     status.className = type || '';
-  }
-
-  function renderLegend() {
-    const el = document.getElementById('legend');
-    if (!el) return;
-    el.replaceChildren();
-    for (const b of FlightMap.getVolumeBuckets()) {
-      const li = document.createElement('li');
-      const swatch = document.createElement('span');
-      swatch.className = 'legend-swatch';
-      swatch.style.background = b.color;
-      li.appendChild(swatch);
-      li.appendChild(document.createTextNode(b.label));
-      el.appendChild(li);
-    }
   }
 
   function renderSkippedAirports(flights) {
@@ -263,6 +247,13 @@
     const size = parseInt(dotSizeSlider.value, 10);
     dotSizeValue.textContent = size;
     FlightMap.setDotSize(size);
+    if (lastResults.some(r => r.flight.valid)) doPlot();
+  });
+
+  // Show routes toggle
+  const showRoutesToggle = document.getElementById('show-routes-toggle');
+  showRoutesToggle.addEventListener('change', () => {
+    FlightMap.setShowRoutes(showRoutesToggle.checked);
     if (lastResults.some(r => r.flight.valid)) doPlot();
   });
 
